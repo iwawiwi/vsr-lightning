@@ -2,15 +2,14 @@ from functools import partial
 from typing import Any, Callable, List, Optional, Sequence
 
 import torch
-from torch import nn, Tensor
-
-from torchvision.ops.misc import Conv2dNormActivation, SqueezeExcitation as SElayer
-from torchvision.transforms._presets import ImageClassification
-from torchvision.utils import _log_api_usage_once
+from torch import Tensor, nn
 from torchvision.models._api import Weights, WeightsEnum
 from torchvision.models._meta import _IMAGENET_CATEGORIES
 from torchvision.models._utils import _make_divisible, _ovewrite_named_param
-
+from torchvision.ops.misc import Conv2dNormActivation
+from torchvision.ops.misc import SqueezeExcitation as SElayer
+from torchvision.transforms._presets import ImageClassification
+from torchvision.utils import _log_api_usage_once
 
 __all__ = [
     "MobileNetV3",
@@ -99,7 +98,11 @@ class InvertedResidual(nn.Module):
         # project
         layers.append(
             Conv2dNormActivation(
-                cnf.expanded_channels, cnf.out_channels, kernel_size=1, norm_layer=norm_layer, activation_layer=None
+                cnf.expanded_channels,
+                cnf.out_channels,
+                kernel_size=1,
+                norm_layer=norm_layer,
+                activation_layer=None,
             )
         )
 
@@ -125,8 +128,7 @@ class MobileNetV3(nn.Module):
         dropout: float = 0.2,
         **kwargs: Any,
     ) -> None:
-        """
-        MobileNet V3 main class
+        """MobileNet V3 main class.
 
         Args:
             inverted_residual_setting (List[InvertedResidualConfig]): Network structure
@@ -220,7 +222,6 @@ class MobileNetV3(nn.Module):
         return self._forward_impl(x)
 
 
-
 class MobileNetVideoEncoder(nn.Module):
     def __init__(
         self,
@@ -232,8 +233,7 @@ class MobileNetVideoEncoder(nn.Module):
         dropout: float = 0.2,
         **kwargs: Any,
     ) -> None:
-        """
-        MobileNet V3 main class
+        """MobileNet V3 main class.
 
         Args:
             inverted_residual_setting (List[InvertedResidualConfig]): Network structure
@@ -265,7 +265,14 @@ class MobileNetVideoEncoder(nn.Module):
         # building first layer
         firstconv_output_channels = inverted_residual_setting[0].input_channels
         self.frontend3D = nn.Sequential(
-            nn.Conv3d(1, firstconv_output_channels, kernel_size=(5, 4, 4), stride=(1, 2, 2), padding=(2, 1, 1), bias=False), # each frame out dimension 56x56
+            nn.Conv3d(
+                1,
+                firstconv_output_channels,
+                kernel_size=(5, 4, 4),
+                stride=(1, 2, 2),
+                padding=(2, 1, 1),
+                bias=False,
+            ),  # each frame out dimension 56x56
             nn.BatchNorm3d(firstconv_output_channels, eps=0.001, momentum=0.01),
             nn.Hardswish(),
             # nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
@@ -329,9 +336,12 @@ class MobileNetVideoEncoder(nn.Module):
         return out
 
 
-
 def _mobilenet_v3_conf(
-    arch: str, width_mult: float = 1.0, reduced_tail: bool = False, dilated: bool = False, **kwargs: Any
+    arch: str,
+    width_mult: float = 1.0,
+    reduced_tail: bool = False,
+    dilated: bool = False,
+    **kwargs: Any,
 ):
     reduce_divider = 2 if reduced_tail else 1
     dilation = 2 if dilated else 1
@@ -354,8 +364,26 @@ def _mobilenet_v3_conf(
             bneck_conf(80, 3, 480, 112, True, "HS", 1, 1),
             bneck_conf(112, 3, 672, 112, True, "HS", 1, 1),
             bneck_conf(112, 5, 672, 160 // reduce_divider, True, "HS", 2, dilation),  # C4
-            bneck_conf(160 // reduce_divider, 5, 960 // reduce_divider, 160 // reduce_divider, True, "HS", 1, dilation),
-            bneck_conf(160 // reduce_divider, 5, 960 // reduce_divider, 160 // reduce_divider, True, "HS", 1, dilation),
+            bneck_conf(
+                160 // reduce_divider,
+                5,
+                960 // reduce_divider,
+                160 // reduce_divider,
+                True,
+                "HS",
+                1,
+                dilation,
+            ),
+            bneck_conf(
+                160 // reduce_divider,
+                5,
+                960 // reduce_divider,
+                160 // reduce_divider,
+                True,
+                "HS",
+                1,
+                dilation,
+            ),
         ]
         last_channel = adjust_channels(1280 // reduce_divider)  # C5
     elif arch == "mobilenet_v3_small":
@@ -369,8 +397,26 @@ def _mobilenet_v3_conf(
             bneck_conf(40, 5, 120, 48, True, "HS", 1, 1),
             bneck_conf(48, 5, 144, 48, True, "HS", 1, 1),
             bneck_conf(48, 5, 288, 96 // reduce_divider, True, "HS", 2, dilation),  # C4
-            bneck_conf(96 // reduce_divider, 5, 576 // reduce_divider, 96 // reduce_divider, True, "HS", 1, dilation),
-            bneck_conf(96 // reduce_divider, 5, 576 // reduce_divider, 96 // reduce_divider, True, "HS", 1, dilation),
+            bneck_conf(
+                96 // reduce_divider,
+                5,
+                576 // reduce_divider,
+                96 // reduce_divider,
+                True,
+                "HS",
+                1,
+                dilation,
+            ),
+            bneck_conf(
+                96 // reduce_divider,
+                5,
+                576 // reduce_divider,
+                96 // reduce_divider,
+                True,
+                "HS",
+                1,
+                dilation,
+            ),
         ]
         last_channel = adjust_channels(1024 // reduce_divider)  # C5
     else:
@@ -468,9 +514,8 @@ class MobileNet_V3_Small_Weights(WeightsEnum):
 def mobilenet_v3_large(
     *, weights: Optional[MobileNet_V3_Large_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> MobileNetV3:
-    """
-    Constructs a large MobileNetV3 architecture from
-    `Searching for MobileNetV3 <https://arxiv.org/abs/1905.02244>`__.
+    """Constructs a large MobileNetV3 architecture from `Searching for MobileNetV3
+    <https://arxiv.org/abs/1905.02244>`__.
 
     Args:
         weights (:class:`~torchvision.models.MobileNet_V3_Large_Weights`, optional): The
@@ -497,9 +542,8 @@ def mobilenet_v3_large(
 def mobilenet_v3_small(
     *, weights: Optional[MobileNet_V3_Small_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> MobileNetV3:
-    """
-    Constructs a small MobileNetV3 architecture from
-    `Searching for MobileNetV3 <https://arxiv.org/abs/1905.02244>`__.
+    """Constructs a small MobileNetV3 architecture from `Searching for MobileNetV3
+    <https://arxiv.org/abs/1905.02244>`__.
 
     Args:
         weights (:class:`~torchvision.models.MobileNet_V3_Small_Weights`, optional): The
@@ -525,7 +569,6 @@ def mobilenet_v3_small(
 
 # The dictionary below is internal implementation detail and will be removed in v0.15
 from torchvision.models._utils import _ModelURLs
-
 
 model_urls = _ModelURLs(
     {

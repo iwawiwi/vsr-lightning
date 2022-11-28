@@ -4,13 +4,11 @@ from typing import Any, Callable, List, Optional
 import torch
 import torch.nn as nn
 from torch import Tensor
-
-from torchvision.transforms._presets import ImageClassification
-from torchvision.utils import _log_api_usage_once
 from torchvision.models._api import Weights, WeightsEnum
 from torchvision.models._meta import _IMAGENET_CATEGORIES
 from torchvision.models._utils import _ovewrite_named_param
-
+from torchvision.transforms._presets import ImageClassification
+from torchvision.utils import _log_api_usage_once
 
 __all__ = [
     "ShuffleNetV2",
@@ -76,9 +74,13 @@ class InvertedResidual(nn.Module):
             ),
             nn.BatchNorm2d(branch_features),
             nn.ReLU(inplace=True),
-            self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1),
+            self.depthwise_conv(
+                branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1
+            ),
             nn.BatchNorm2d(branch_features),
-            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv2d(
+                branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False
+            ),
             nn.BatchNorm2d(branch_features),
             nn.ReLU(inplace=True),
         )
@@ -134,7 +136,9 @@ class ShuffleNetV2(nn.Module):
         self.stage3: nn.Sequential
         self.stage4: nn.Sequential
         stage_names = [f"stage{i}" for i in [2, 3, 4]]
-        for name, repeats, output_channels in zip(stage_names, stages_repeats, self._stage_out_channels[1:]):
+        for name, repeats, output_channels in zip(
+            stage_names, stages_repeats, self._stage_out_channels[1:]
+        ):
             seq = [inverted_residual(input_channels, output_channels, 2)]
             for i in range(repeats - 1):
                 seq.append(inverted_residual(output_channels, output_channels, 1))
@@ -194,7 +198,14 @@ class ShuffleNetVideoEncoder(nn.Module):
         # self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.frontend3D = nn.Sequential(
-            nn.Conv3d(1, output_channels, kernel_size=(5, 4, 4), stride=(1, 2, 2), padding=(2, 1, 1), bias=False), # each frame out dimension 56x56
+            nn.Conv3d(
+                1,
+                output_channels,
+                kernel_size=(5, 4, 4),
+                stride=(1, 2, 2),
+                padding=(2, 1, 1),
+                bias=False,
+            ),  # each frame out dimension 56x56
             nn.BatchNorm3d(output_channels, eps=0.001, momentum=0.01),
             nn.ReLU(inplace=True),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
@@ -209,7 +220,9 @@ class ShuffleNetVideoEncoder(nn.Module):
         self.stage3: nn.Sequential
         self.stage4: nn.Sequential
         stage_names = [f"stage{i}" for i in [2, 3, 4]]
-        for name, repeats, output_channels in zip(stage_names, stages_repeats, self._stage_out_channels[1:]):
+        for name, repeats, output_channels in zip(
+            stage_names, stages_repeats, self._stage_out_channels[1:]
+        ):
             seq = [inverted_residual(input_channels, output_channels, 2)]
             for i in range(repeats - 1):
                 seq.append(inverted_residual(output_channels, output_channels, 1))
@@ -223,7 +236,6 @@ class ShuffleNetVideoEncoder(nn.Module):
             nn.ReLU(inplace=True),
         )
         self.outplanes = output_channels
-
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
@@ -367,9 +379,9 @@ class ShuffleNet_V2_X2_0_Weights(WeightsEnum):
 def shufflenet_v2_x0_5(
     *, weights: Optional[ShuffleNet_V2_X0_5_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> ShuffleNetV2:
-    """
-    Constructs a ShuffleNetV2 architecture with 0.5x output channels, as described in
-    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design
+    """Constructs a ShuffleNetV2 architecture with 0.5x output channels, as described in
+    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design.
+
     <https://arxiv.org/abs/1807.11164>`__.
 
     Args:
@@ -396,9 +408,9 @@ def shufflenet_v2_x0_5(
 def shufflenet_v2_x1_0(
     *, weights: Optional[ShuffleNet_V2_X1_0_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> ShuffleNetV2:
-    """
-    Constructs a ShuffleNetV2 architecture with 1.0x output channels, as described in
-    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design
+    """Constructs a ShuffleNetV2 architecture with 1.0x output channels, as described in
+    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design.
+
     <https://arxiv.org/abs/1807.11164>`__.
 
     Args:
@@ -425,9 +437,9 @@ def shufflenet_v2_x1_0(
 def shufflenet_v2_x1_5(
     *, weights: Optional[ShuffleNet_V2_X1_5_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> ShuffleNetV2:
-    """
-    Constructs a ShuffleNetV2 architecture with 1.5x output channels, as described in
-    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design
+    """Constructs a ShuffleNetV2 architecture with 1.5x output channels, as described in
+    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design.
+
     <https://arxiv.org/abs/1807.11164>`__.
 
     Args:
@@ -454,9 +466,9 @@ def shufflenet_v2_x1_5(
 def shufflenet_v2_x2_0(
     *, weights: Optional[ShuffleNet_V2_X2_0_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> ShuffleNetV2:
-    """
-    Constructs a ShuffleNetV2 architecture with 2.0x output channels, as described in
-    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design
+    """Constructs a ShuffleNetV2 architecture with 2.0x output channels, as described in
+    `ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design.
+
     <https://arxiv.org/abs/1807.11164>`__.
 
     Args:
@@ -482,7 +494,6 @@ def shufflenet_v2_x2_0(
 
 # The dictionary below is internal implementation detail and will be removed in v0.15
 from torchvision.models._utils import _ModelURLs
-
 
 model_urls = _ModelURLs(
     {
