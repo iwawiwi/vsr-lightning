@@ -15,7 +15,7 @@ class CnnGRUModel(nn.Module):
         super().__init__()
         self.use_border = use_border
 
-        self.video_encoder = encoder()
+        self.video_encoder = encoder
 
         # prepare for GRU input
         in_gru = self.video_encoder.outplanes

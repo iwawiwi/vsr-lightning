@@ -24,3 +24,7 @@ net:
   n_classes: 500
   use_border: false
   dropout: 0.5
+
+label_smooth: false
+use_boundary: false
+use_mixup: false

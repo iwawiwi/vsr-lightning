@@ -24,4 +24,4 @@ trainer:
 logger:
   wandb:
     tags: ${tags}
-    group: "mnist"
+    group: "lrw"

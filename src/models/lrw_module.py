@@ -59,8 +59,8 @@ class LRWLitModule(LightningModule):
         # for tracking best so far validation accuracy
         self.val_acc_best = MaxMetric()
 
-    def forward(self, x: torch.Tensor):
-        return self.net(x)
+    def forward(self, x: torch.Tensor, border: torch.Tensor = None):
+        return self.net(x, border)
 
     def on_train_start(self):
         # by default lightning executes validation step sanity checks before training starts,
@@ -68,7 +68,7 @@ class LRWLitModule(LightningModule):
         self.val_acc_best.reset()
 
     def step(self, batch: Any):
-        x, y, border = batch["video"], batch["label"].long(), batch["border"].float()
+        x, y, border = batch["video"], batch["label"].long(), batch["duration"].float()
 
         # not using boundary information
         if not self.hparams.use_boundary:
@@ -85,7 +85,7 @@ class LRWLitModule(LightningModule):
             logits = self.forward(x, border)
             loss = self.criterion(logits, y)
 
-        preds = torch.argmax(logits, dim=1)
+        preds = torch.argmax(logits, dim=-1)
         return loss, preds, y
 
     def training_step(self, batch: Any, batch_idx: int):
