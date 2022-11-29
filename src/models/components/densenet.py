@@ -8,13 +8,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as cp
 from torch import Tensor
-
-from torchvision.transforms._presets import ImageClassification
-from torchvision.utils import _log_api_usage_once
 from torchvision.models._api import Weights, WeightsEnum
 from torchvision.models._meta import _IMAGENET_CATEGORIES
 from torchvision.models._utils import _ovewrite_named_param
-
+from torchvision.transforms._presets import ImageClassification
+from torchvision.utils import _log_api_usage_once
 
 __all__ = [
     "DenseNet",
@@ -31,16 +29,25 @@ __all__ = [
 
 class _DenseLayer(nn.Module):
     def __init__(
-        self, num_input_features: int, growth_rate: int, bn_size: int, drop_rate: float, memory_efficient: bool = False
+        self,
+        num_input_features: int,
+        growth_rate: int,
+        bn_size: int,
+        drop_rate: float,
+        memory_efficient: bool = False,
     ) -> None:
         super().__init__()
         self.norm1 = nn.BatchNorm2d(num_input_features)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(num_input_features, bn_size * growth_rate, kernel_size=1, stride=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            num_input_features, bn_size * growth_rate, kernel_size=1, stride=1, bias=False
+        )
 
         self.norm2 = nn.BatchNorm2d(bn_size * growth_rate)
         self.relu2 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(bn_size * growth_rate, growth_rate, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            bn_size * growth_rate, growth_rate, kernel_size=3, stride=1, padding=1, bias=False
+        )
 
         self.drop_rate = float(drop_rate)
         self.memory_efficient = memory_efficient
@@ -130,7 +137,9 @@ class _Transition(nn.Sequential):
         super().__init__()
         self.norm = nn.BatchNorm2d(num_input_features)
         self.relu = nn.ReLU(inplace=True)
-        self.conv = nn.Conv2d(num_input_features, num_output_features, kernel_size=1, stride=1, bias=False)
+        self.conv = nn.Conv2d(
+            num_input_features, num_output_features, kernel_size=1, stride=1, bias=False
+        )
         self.pool = nn.AvgPool2d(kernel_size=2, stride=2)
 
 
@@ -168,7 +177,12 @@ class DenseNet(nn.Module):
         self.features = nn.Sequential(
             OrderedDict(
                 [
-                    ("conv0", nn.Conv2d(3, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
+                    (
+                        "conv0",
+                        nn.Conv2d(
+                            3, num_init_features, kernel_size=7, stride=2, padding=3, bias=False
+                        ),
+                    ),
                     ("norm0", nn.BatchNorm2d(num_init_features)),
                     ("relu0", nn.ReLU(inplace=True)),
                     ("pool0", nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
@@ -190,7 +204,9 @@ class DenseNet(nn.Module):
             self.features.add_module("denseblock%d" % (i + 1), block)
             num_features = num_features + num_layers * growth_rate
             if i != len(block_config) - 1:
-                trans = _Transition(num_input_features=num_features, num_output_features=num_features // 2)
+                trans = _Transition(
+                    num_input_features=num_features, num_output_features=num_features // 2
+                )
                 self.features.add_module("transition%d" % (i + 1), trans)
                 num_features = num_features // 2
 
@@ -253,10 +269,23 @@ class DenseNetVideoEncoder(nn.Module):
         self.frontend3D = nn.Sequential(
             OrderedDict(
                 [
-                    ("conv0", nn.Conv3d(1, num_init_features, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False)),
+                    (
+                        "conv0",
+                        nn.Conv3d(
+                            1,
+                            num_init_features,
+                            kernel_size=(5, 7, 7),
+                            stride=(1, 2, 2),
+                            padding=(2, 3, 3),
+                            bias=False,
+                        ),
+                    ),
                     ("norm0", nn.BatchNorm3d(num_init_features, eps=0.001, momentum=0.01)),
                     ("relu0", nn.ReLU(inplace=True)),
-                    ("pool0", nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))),
+                    (
+                        "pool0",
+                        nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
+                    ),
                 ]
             )
         )
@@ -276,14 +305,15 @@ class DenseNetVideoEncoder(nn.Module):
             self.features.add_module("denseblock%d" % (i + 1), block)
             num_features = num_features + num_layers * growth_rate
             if i != len(block_config) - 1:
-                trans = _Transition(num_input_features=num_features, num_output_features=num_features // 2)
+                trans = _Transition(
+                    num_input_features=num_features, num_output_features=num_features // 2
+                )
                 self.features.add_module("transition%d" % (i + 1), trans)
                 num_features = num_features // 2
 
         # Final batch norm
         self.features.add_module("norm5", nn.BatchNorm2d(num_features))
         self.outplanes = num_features
-
 
         # Official init from torch repo.
         for m in self.modules():
@@ -302,11 +332,11 @@ class DenseNetVideoEncoder(nn.Module):
 
         out = out.transpose(1, 2)
         out = out.reshape(out.shape[0] * out.shape[1], out.shape[2], out.shape[3], out.shape[4])
-        
+
         out = self.features(out)
         out = F.relu(out, inplace=True)
         out = F.adaptive_avg_pool2d(out, (1, 1))
-        
+
         out = out.reshape(b, -1, self.outplanes)
         out = out.transpose(1, 2)
         out = out.transpose(1, 2).transpose(0, 1)
@@ -431,7 +461,9 @@ class DenseNet201_Weights(WeightsEnum):
     DEFAULT = IMAGENET1K_V1
 
 
-def densenet121(*, weights: Optional[DenseNet121_Weights] = None, progress: bool = True, **kwargs: Any) -> DenseNet:
+def densenet121(
+    *, weights: Optional[DenseNet121_Weights] = None, progress: bool = True, **kwargs: Any
+) -> DenseNet:
     r"""Densenet-121 model from
     `Densely Connected Convolutional Networks <https://arxiv.org/abs/1608.06993>`_.
 
@@ -455,7 +487,9 @@ def densenet121(*, weights: Optional[DenseNet121_Weights] = None, progress: bool
     return _densenet(32, (6, 12, 24, 16), 64, weights, progress, **kwargs)
 
 
-def densenet161(*, weights: Optional[DenseNet161_Weights] = None, progress: bool = True, **kwargs: Any) -> DenseNet:
+def densenet161(
+    *, weights: Optional[DenseNet161_Weights] = None, progress: bool = True, **kwargs: Any
+) -> DenseNet:
     r"""Densenet-161 model from
     `Densely Connected Convolutional Networks <https://arxiv.org/abs/1608.06993>`_.
 
@@ -479,7 +513,9 @@ def densenet161(*, weights: Optional[DenseNet161_Weights] = None, progress: bool
     return _densenet(48, (6, 12, 36, 24), 96, weights, progress, **kwargs)
 
 
-def densenet169(*, weights: Optional[DenseNet169_Weights] = None, progress: bool = True, **kwargs: Any) -> DenseNet:
+def densenet169(
+    *, weights: Optional[DenseNet169_Weights] = None, progress: bool = True, **kwargs: Any
+) -> DenseNet:
     r"""Densenet-169 model from
     `Densely Connected Convolutional Networks <https://arxiv.org/abs/1608.06993>`_.
 
@@ -503,7 +539,9 @@ def densenet169(*, weights: Optional[DenseNet169_Weights] = None, progress: bool
     return _densenet(32, (6, 12, 32, 32), 64, weights, progress, **kwargs)
 
 
-def densenet201(*, weights: Optional[DenseNet201_Weights] = None, progress: bool = True, **kwargs: Any) -> DenseNet:
+def densenet201(
+    *, weights: Optional[DenseNet201_Weights] = None, progress: bool = True, **kwargs: Any
+) -> DenseNet:
     r"""Densenet-201 model from
     `Densely Connected Convolutional Networks <https://arxiv.org/abs/1608.06993>`_.
 
@@ -529,7 +567,6 @@ def densenet201(*, weights: Optional[DenseNet201_Weights] = None, progress: bool
 
 # The dictionary below is internal implementation detail and will be removed in v0.15
 from torchvision.models._utils import _ModelURLs
-
 
 model_urls = _ModelURLs(
     {
