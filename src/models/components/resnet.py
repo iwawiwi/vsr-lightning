@@ -6,16 +6,24 @@ import torch.nn.functional as F
 class ResNetLayer(nn.Module):
     def __init__(self, inplanes, outplanes, stride) -> None:
         super().__init__()
-        self.conv1a = nn.Conv2d(inplanes, outplanes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1a = nn.Conv2d(
+            inplanes, outplanes, kernel_size=3, stride=stride, padding=1, bias=False
+        )
         self.bn1a = nn.BatchNorm2d(outplanes, momentum=0.01, eps=0.001)
-        self.conv2a = nn.Conv2d(outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2a = nn.Conv2d(
+            outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.stride = stride
         self.downsample = nn.Conv2d(inplanes, outplanes, kernel_size=1, stride=stride, bias=False)
         self.outbna = nn.BatchNorm2d(outplanes, momentum=0.01, eps=0.001)
 
-        self.conv1b = nn.Conv2d(outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1b = nn.Conv2d(
+            outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn1b = nn.BatchNorm2d(outplanes, momentum=0.01, eps=0.001)
-        self.conv2b = nn.Conv2d(outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2b = nn.Conv2d(
+            outplanes, outplanes, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.outbnb = nn.BatchNorm2d(outplanes, momentum=0.01, eps=0.001)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -36,17 +44,18 @@ class ResNetLayer(nn.Module):
 
         return out
 
+
 class ResNet(nn.Module):
     def __init__(self, inplanes, outplanes) -> None:
         super().__init__()
-        assert inplanes <= outplanes//8, "inplanes must be <= outplanes//8"
-        self.layer1 = ResNetLayer(inplanes, outplanes//8, stride=1)
-        self.layer2 = ResNetLayer(outplanes//8, outplanes//4, stride=2)
-        self.layer3 = ResNetLayer(outplanes//4, outplanes//2, stride=2)
-        self.layer4 = ResNetLayer(outplanes//2, outplanes, stride=2)
+        assert inplanes <= outplanes // 8, "inplanes must be <= outplanes//8"
+        self.layer1 = ResNetLayer(inplanes, outplanes // 8, stride=1)
+        self.layer2 = ResNetLayer(outplanes // 8, outplanes // 4, stride=2)
+        self.layer3 = ResNetLayer(outplanes // 4, outplanes // 2, stride=2)
+        self.layer4 = ResNetLayer(outplanes // 2, outplanes, stride=2)
         self.avgpool = nn.AvgPool2d(kernel_size=4, stride=1)
         self.inplanes = inplanes
-        self.outplanes = outplanes
+        # self.outplanes = outplanes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.layer1(x)
@@ -60,14 +69,22 @@ class ResNet(nn.Module):
 class ResNetVideoEncoder(nn.Module):
     def __init__(self, inplanes, outplanes) -> None:
         super().__init__()
-        self.frontend3D = nn.Sequential( # head 3d frontend
-            nn.Conv3d(inplanes, outplanes//8, kernel_size=(5, 7, 7), stride=(1, 2, 2), padding=(2, 3, 3), bias=False),
-            nn.BatchNorm3d(outplanes//8, eps=0.001, momentum=0.01),
+        self.frontend3D = nn.Sequential(  # head 3d frontend
+            nn.Conv3d(
+                inplanes,
+                outplanes // 8,
+                kernel_size=(5, 7, 7),
+                stride=(1, 2, 2),
+                padding=(2, 3, 3),
+                bias=False,
+            ),
+            nn.BatchNorm3d(outplanes // 8, eps=0.001, momentum=0.01),
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
         )
-        self.resnet = ResNet(outplanes//8, outplanes)
-        
+        self.resnet = ResNet(outplanes // 8, outplanes)
+        self.outplanes = outplanes
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.transpose(0, 1).transpose(1, 2)
         b = x.shape[0]
@@ -76,10 +93,8 @@ class ResNetVideoEncoder(nn.Module):
         out = out.transpose(1, 2)
         out = out.reshape(out.shape[0] * out.shape[1], out.shape[2], out.shape[3], out.shape[4])
         out = self.resnet(out)
-        
-        out = out.reshape(b, -1, self.resnet.outplanes)
+
+        out = out.reshape(b, -1, self.outplanes)
         out = out.transpose(1, 2)
         out = out.transpose(1, 2).transpose(0, 1)
         return out
-
-        
