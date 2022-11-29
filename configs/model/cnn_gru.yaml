@@ -1,0 +1,26 @@
+_target_: src.models.lrw_module.LRWLitModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+net:
+  _target_: src.models.components.cnn_gru.CnnGRUModel
+  encoder:
+    _target_: src.models.components.resnet.ResNetVideoEncoder
+    inplanes: 1
+    outplanes: 32
+  gru_hidden: 256
+  gru_layers: 2
+  n_classes: 500
+  use_border: false
+  dropout: 0.5
