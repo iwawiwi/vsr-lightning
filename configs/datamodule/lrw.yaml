@@ -1,0 +1,5 @@
+_target_: src.datamodules.lrw_datamodule.LRWDataModule
+data_dir: ${paths.data_dir}/lrw_roi
+batch_size: 32
+num_workers: 8
+pin_memory: True

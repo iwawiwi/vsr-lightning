@@ -1,0 +1,5 @@
+_target_: src.datamodules.lrw1k_datamodule.LRW1KDataModule
+data_dir: ${paths.data_dir}/lrw_1k
+batch_size: 32
+num_workers: 8
+pin_memory: True
