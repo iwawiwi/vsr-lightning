@@ -1,4 +1,5 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -69,7 +70,7 @@ class ResNet(nn.Module):
 
 
 class ResNetVideoEncoder(nn.Module):
-    def __init__(self, inplanes = 1, outplanes = 32) -> None:
+    def __init__(self, inplanes=1, outplanes=32) -> None:
         super().__init__()
         self.frontend3D = nn.Sequential(  # head 3d frontend
             nn.Conv3d(
@@ -89,9 +90,9 @@ class ResNetVideoEncoder(nn.Module):
 
         # initialize weights
         self._initialize_weights()
-        
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    # ------ FIXME: For character level experiments using LRS
+    def forward_alt(self, x: torch.Tensor) -> torch.Tensor:
         x = x.transpose(0, 1).transpose(1, 2)
         b = x.shape[0]
         out = self.frontend3D(x)
@@ -105,23 +106,36 @@ class ResNetVideoEncoder(nn.Module):
         out = out.transpose(1, 2).transpose(0, 1)
         return out
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.transpose(1, 2)
+        b = x.shape[0]
+        out = self.frontend3D(x)
+        out = out.transpose(1, 2)
+        out = out.contiguous()
+
+        out = out.view(-1, out.shape[-3], out.shape[-2], out.shape[-1])
+        out = self.resnet(out)
+        out = out.view(b, -1, self.outplanes)
+
+        return out
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv1d):
                 n = m.kernel_size[0] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 

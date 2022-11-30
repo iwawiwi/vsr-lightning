@@ -1,7 +1,7 @@
+import math
 from functools import partial
 from typing import Any, Callable, List, Optional, Sequence
 
-import math
 import torch
 from torch import Tensor, nn
 from torchvision.models._api import Weights, WeightsEnum
@@ -323,7 +323,8 @@ class MobileNetVideoEncoder(nn.Module):
         x = self.avgpool(x)
         return x
 
-    def forward(self, x: Tensor) -> Tensor:
+    # ------ FIXME: For character level experiments using LRS
+    def forward_alt(self, x: Tensor) -> Tensor:
         x = x.transpose(0, 1).transpose(1, 2)
         b = x.shape[0]
         out = self.frontend3D(x)
@@ -339,23 +340,36 @@ class MobileNetVideoEncoder(nn.Module):
 
         return out
 
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.transpose(1, 2)
+        b = x.shape[0]
+        out = self.frontend3D(x)
+        out = out.transpose(1, 2)
+        out = out.contiguous()
+
+        out = out.view(-1, out.shape[-3], out.shape[-2], out.shape[-1])
+        out = self._forward_impl(out)
+        out = out.view(b, -1, self.outplanes)
+
+        return out
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv1d):
                 n = m.kernel_size[0] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
@@ -550,7 +564,8 @@ class MobileNet_V3_Small_Weights(WeightsEnum):
 def mobilenet_v3_large(
     *, weights: Optional[MobileNet_V3_Large_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> MobileNetV3:
-    """Constructs a large MobileNetV3 architecture from `Searching for MobileNetV3
+    """Constructs a large MobileNetV3 architecture from `Searching for MobileNetV3.
+
     <https://arxiv.org/abs/1905.02244>`__.
 
     Args:
@@ -578,7 +593,8 @@ def mobilenet_v3_large(
 def mobilenet_v3_small(
     *, weights: Optional[MobileNet_V3_Small_Weights] = None, progress: bool = True, **kwargs: Any
 ) -> MobileNetV3:
-    """Constructs a small MobileNetV3 architecture from `Searching for MobileNetV3
+    """Constructs a small MobileNetV3 architecture from `Searching for MobileNetV3.
+
     <https://arxiv.org/abs/1905.02244>`__.
 
     Args:

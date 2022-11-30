@@ -1,7 +1,7 @@
+import math
 from functools import partial
 from typing import Any, Callable, List, Optional
 
-import math
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -190,7 +190,13 @@ class ShuffleNetVideoEncoder(nn.Module):
         elif mode == "shufflenet_v2_x0_5":
             stages_repeats, stages_out_channels = [4, 8, 4], [24, 88, 176, 352, 704]
         else:
-            stages_repeats, stages_out_channels = [4, 8, 4], [24, 176, 352, 704, 1024] # default using 1.5 width
+            stages_repeats, stages_out_channels = [4, 8, 4], [
+                24,
+                176,
+                352,
+                704,
+                1024,
+            ]  # default using 1.5 width
 
         if len(stages_repeats) != 3:
             raise ValueError("expected stages_repeats as list of 3 positive ints")
@@ -263,8 +269,8 @@ class ShuffleNetVideoEncoder(nn.Module):
         # x = self.fc(x)
         return x
 
-
-    def forward(self, x: Tensor) -> Tensor:
+    # ------ FIXME: For character level experiments using LRS
+    def forward_alt(self, x: Tensor) -> Tensor:
         x = x.transpose(0, 1).transpose(1, 2)
         b = x.shape[0]
         out = self.frontend3D(x)
@@ -280,24 +286,36 @@ class ShuffleNetVideoEncoder(nn.Module):
 
         return out
 
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.transpose(1, 2)
+        b = x.shape[0]
+        out = self.frontend3D(x)
+        out = out.transpose(1, 2)
+        out = out.contiguous()
+
+        out = out.view(-1, out.shape[-3], out.shape[-2], out.shape[-1])
+        out = self._forward_impl(out)
+        out = out.view(b, -1, self.outplanes)
+
+        return out
 
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv1d):
                 n = m.kernel_size[0] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 

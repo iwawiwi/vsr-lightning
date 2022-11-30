@@ -386,23 +386,33 @@ class EfficientNetVideoEncoder(nn.Module):
         _log_api_usage_once(self)
 
         if mode == "efficientnet_b0":
-            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b0", width_mult=1.0, depth_mult=1.0)
+            inverted_residual_setting, last_channel = _efficientnet_conf(
+                "efficientnet_b0", width_mult=1.0, depth_mult=1.0
+            )
             dropout = 0.2
         elif mode == "efficientnet_b1":
-            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b1", width_mult=1.0, depth_mult=1.1)
-            dropout = 0.2 
+            inverted_residual_setting, last_channel = _efficientnet_conf(
+                "efficientnet_b1", width_mult=1.0, depth_mult=1.1
+            )
+            dropout = 0.2
         elif mode == "efficientnet_b2":
-            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b2", width_mult=1.1, depth_mult=1.2)
+            inverted_residual_setting, last_channel = _efficientnet_conf(
+                "efficientnet_b2", width_mult=1.1, depth_mult=1.2
+            )
             dropout = 0.3
         elif mode == "efficientnet_b3":
-            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b3", width_mult=1.2, depth_mult=1.4)
+            inverted_residual_setting, last_channel = _efficientnet_conf(
+                "efficientnet_b3", width_mult=1.2, depth_mult=1.4
+            )
             dropout = 0.3
         elif mode == "efficientnet_v2_s":
             inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_v2_s")
             dropout = 0.2
-            norm_layer = partial(nn.BatchNorm2d, eps=1e-03),
-        else: # default is efficientnet_b0
-            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b0", width_mult=1.0, depth_mult=1.0)
+            norm_layer = (partial(nn.BatchNorm2d, eps=1e-03),)
+        else:  # default is efficientnet_b0
+            inverted_residual_setting, last_channel = _efficientnet_conf(
+                "efficientnet_b0", width_mult=1.0, depth_mult=1.0
+            )
             dropout = 0.2
 
         if not inverted_residual_setting:
@@ -503,13 +513,13 @@ class EfficientNetVideoEncoder(nn.Module):
         #         nn.init.zeros_(m.bias)
         self._initialize_weights()
 
-
     def _forward_impl(self, x: Tensor) -> Tensor:
         x = self.features(x)
         x = self.avgpool(x)
         return x
 
-    def forward(self, x: Tensor) -> Tensor:
+    # ------ FIXME: For character level experiments using LRS
+    def forward_alt(self, x: Tensor) -> Tensor:
         x = x.transpose(0, 1).transpose(1, 2)
         b = x.shape[0]
         out = self.frontend3D(x)
@@ -525,23 +535,36 @@ class EfficientNetVideoEncoder(nn.Module):
 
         return out
 
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.transpose(1, 2)
+        b = x.shape[0]
+        out = self.frontend3D(x)
+        out = out.transpose(1, 2)
+        out = out.contiguous()
+
+        out = out.view(-1, out.shape[-3], out.shape[-2], out.shape[-1])
+        out = self._forward_impl(out)
+        out = out.view(b, -1, self.outplanes)
+
+        return out
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
             elif isinstance(m, nn.Conv1d):
                 n = m.kernel_size[0] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
 
