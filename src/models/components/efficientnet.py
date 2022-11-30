@@ -366,7 +366,7 @@ class EfficientNet(nn.Module):
 class EfficientNetVideoEncoder(nn.Module):
     def __init__(
         self,
-        inverted_residual_setting: Sequence[Union[MBConvConfig, FusedMBConvConfig]],
+        mode: str = "efficientnet_b0",
         stochastic_depth_prob: float = 0.2,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         last_channel: Optional[int] = None,
@@ -384,6 +384,26 @@ class EfficientNetVideoEncoder(nn.Module):
         """
         super().__init__()
         _log_api_usage_once(self)
+
+        if mode == "efficientnet_b0":
+            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b0", width_mult=1.0, depth_mult=1.0)
+            dropout = 0.2
+        elif mode == "efficientnet_b1":
+            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b1", width_mult=1.0, depth_mult=1.1)
+            dropout = 0.2 
+        elif mode == "efficientnet_b2":
+            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b2", width_mult=1.1, depth_mult=1.2)
+            dropout = 0.3
+        elif mode == "efficientnet_b3":
+            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b3", width_mult=1.2, depth_mult=1.4)
+            dropout = 0.3
+        elif mode == "efficientnet_v2_s":
+            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_v2_s")
+            dropout = 0.2
+            norm_layer = partial(nn.BatchNorm2d, eps=1e-03),
+        else: # default is efficientnet_b0
+            inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_b0", width_mult=1.0, depth_mult=1.0)
+            dropout = 0.2
 
         if not inverted_residual_setting:
             raise ValueError("The inverted_residual_setting should not be empty")
@@ -468,18 +488,21 @@ class EfficientNetVideoEncoder(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.outplanes = lastconv_output_channels
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out")
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.ones_(m.weight)
-                nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.Linear):
-                init_range = 1.0 / math.sqrt(m.out_features)
-                nn.init.uniform_(m.weight, -init_range, init_range)
-                nn.init.zeros_(m.bias)
+        # initialize weights
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.kaiming_normal_(m.weight, mode="fan_out")
+        #         if m.bias is not None:
+        #             nn.init.zeros_(m.bias)
+        #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+        #         nn.init.ones_(m.weight)
+        #         nn.init.zeros_(m.bias)
+        #     elif isinstance(m, nn.Linear):
+        #         init_range = 1.0 / math.sqrt(m.out_features)
+        #         nn.init.uniform_(m.weight, -init_range, init_range)
+        #         nn.init.zeros_(m.bias)
+        self._initialize_weights()
+
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         x = self.features(x)
@@ -501,6 +524,38 @@ class EfficientNetVideoEncoder(nn.Module):
         out = out.transpose(1, 2).transpose(0, 1)
 
         return out
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Conv1d):
+                n = m.kernel_size[0] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm3d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm1d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
 
 def _efficientnet(

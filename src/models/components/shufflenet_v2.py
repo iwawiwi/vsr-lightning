@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Any, Callable, List, Optional
 
+import math
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -173,13 +174,23 @@ class ShuffleNetV2(nn.Module):
 class ShuffleNetVideoEncoder(nn.Module):
     def __init__(
         self,
-        stages_repeats: List[int],
-        stages_out_channels: List[int],
+        mode: str = "shufflenetv2_x1_5",
         num_classes: int = 1000,
         inverted_residual: Callable[..., nn.Module] = InvertedResidual,
     ) -> None:
         super().__init__()
         _log_api_usage_once(self)
+
+        if mode == "shufflenet_v2_x2_0":
+            stages_repeats, stages_out_channels = [4, 8, 4], [24, 244, 488, 976, 2048]
+        elif mode == "shufflenet_v2_x1_5":
+            stages_repeats, stages_out_channels = [4, 8, 4], [24, 176, 352, 704, 1024]
+        elif mode == "shufflenet_v2_x1_0":
+            stages_repeats, stages_out_channels = [4, 8, 4], [24, 116, 232, 464, 1024]
+        elif mode == "shufflenet_v2_x0_5":
+            stages_repeats, stages_out_channels = [4, 8, 4], [24, 88, 176, 352, 704]
+        else:
+            stages_repeats, stages_out_channels = [4, 8, 4], [24, 176, 352, 704, 1024] # default using 1.5 width
 
         if len(stages_repeats) != 3:
             raise ValueError("expected stages_repeats as list of 3 positive ints")
@@ -237,6 +248,9 @@ class ShuffleNetVideoEncoder(nn.Module):
         )
         self.outplanes = output_channels
 
+        # initialize weights
+        self._initialize_weights()
+
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
         # x = self.conv1(x)
@@ -248,6 +262,7 @@ class ShuffleNetVideoEncoder(nn.Module):
         x = x.mean([2, 3])  # globalpool
         # x = self.fc(x)
         return x
+
 
     def forward(self, x: Tensor) -> Tensor:
         x = x.transpose(0, 1).transpose(1, 2)
@@ -264,6 +279,39 @@ class ShuffleNetVideoEncoder(nn.Module):
         out = out.transpose(1, 2).transpose(0, 1)
 
         return out
+
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Conv1d):
+                n = m.kernel_size[0] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm3d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm1d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
 
 def _shufflenetv2(

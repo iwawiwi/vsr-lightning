@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Any, Callable, List, Optional, Sequence
 
+import math
 import torch
 from torch import Tensor, nn
 from torchvision.models._api import Weights, WeightsEnum
@@ -225,8 +226,7 @@ class MobileNetV3(nn.Module):
 class MobileNetVideoEncoder(nn.Module):
     def __init__(
         self,
-        inverted_residual_setting: List[InvertedResidualConfig],
-        last_channel: int,
+        mode: str = "mobilenet_v3_large",
         num_classes: int = 1000,
         block: Optional[Callable[..., nn.Module]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
@@ -245,6 +245,8 @@ class MobileNetVideoEncoder(nn.Module):
         """
         super().__init__()
         _log_api_usage_once(self)
+
+        inverted_residual_setting, last_channel = _mobilenet_v3_conf(mode, **kwargs)
 
         if not inverted_residual_setting:
             raise ValueError("The inverted_residual_setting should not be empty")
@@ -302,17 +304,19 @@ class MobileNetVideoEncoder(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.outplanes = lastconv_output_channels
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out")
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.ones_(m.weight)
-                nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.zeros_(m.bias)
+        # initilaize weights
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.kaiming_normal_(m.weight, mode="fan_out")
+        #         if m.bias is not None:
+        #             nn.init.zeros_(m.bias)
+        #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+        #         nn.init.ones_(m.weight)
+        #         nn.init.zeros_(m.bias)
+        #     elif isinstance(m, nn.Linear):
+        #         nn.init.normal_(m.weight, 0, 0.01)
+        #         nn.init.zeros_(m.bias)
+        self._initialize_weights()
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         x = self.features(x)
@@ -334,6 +338,38 @@ class MobileNetVideoEncoder(nn.Module):
         out = out.transpose(1, 2).transpose(0, 1)
 
         return out
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.kernel_size[2] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.Conv1d):
+                n = m.kernel_size[0] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm3d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+            elif isinstance(m, nn.BatchNorm1d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
 
 def _mobilenet_v3_conf(
