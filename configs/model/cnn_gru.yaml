@@ -15,12 +15,8 @@ scheduler:
 
 net:
   _target_: src.models.components.cnn_gru.CnnGRUModel
-  encoder:
-    _target_: src.models.components.resnet.ResNetVideoEncoder
-    inplanes: 1
-    outplanes: 32
-  gru_hidden: 256
-  gru_layers: 2
+  gru_hidden: 1024
+  gru_layers: 3
   n_classes: 500
   use_border: false
   dropout: 0.5
