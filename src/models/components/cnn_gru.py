@@ -6,8 +6,8 @@ class CnnGRUModel(nn.Module):
     def __init__(
         self,
         encoder: torch.nn.Module,
-        gru_hidden: int = 256,
-        gru_layers: int = 2,
+        gru_hidden: int = 1024,
+        gru_layers: int = 3,
         n_classes: int = 500,
         use_border: bool = False,
         dropout: float = 0.5,
