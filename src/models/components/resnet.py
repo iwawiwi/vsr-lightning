@@ -53,7 +53,8 @@ class ResNet(nn.Module):
         self.layer2 = ResNetLayer(outplanes // 8, outplanes // 4, stride=2)
         self.layer3 = ResNetLayer(outplanes // 4, outplanes // 2, stride=2)
         self.layer4 = ResNetLayer(outplanes // 2, outplanes, stride=2)
-        self.avgpool = nn.AvgPool2d(kernel_size=4, stride=1)
+        # self.avgpool = nn.AvgPool2d(kernel_size=4, stride=1)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.inplanes = inplanes
         # self.outplanes = outplanes
 
